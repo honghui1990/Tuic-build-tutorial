@@ -1,3 +1,11 @@
+# **Installation**
+```
+apt update && apt -y install curl
+```
+```
+bash <(curl -L https://raw.githubusercontent.com/TinrLin/NaiveProxy-installation/main/Install.sh)
+```
+
 # [Tuic](https://github.com/EAimTY/tuic)
 - **Install the Tuic program**
 ```
