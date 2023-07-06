@@ -153,47 +153,47 @@ function generate_tuic_config() {
 
     # 配置证书
     while true; do
-        read -p "请选择证书来源：
-        1. 自备证书
-        2. 自动申请证书
-        请输入对应的数字: " certificate_option
+    read -p "请选择证书来源：
+    1. 自备证书
+    2. 自动申请证书
+    请输入对应的数字: " certificate_option
 
-        case $certificate_option in
-            1)
-                while true; do
-                    read -p "请输入证书路径 (默认/usr/local/etc/tuic/cert.crt): " certificate
-                    certificate=${certificate:-/usr/local/etc/tuic/cert.crt}
+    case $certificate_option in
+        1)
+            while true; do
+                read -p "请输入证书路径 (默认/usr/local/etc/tuic/cert.crt): " certificate
+                certificate=${certificate:-/usr/local/etc/tuic/cert.crt}
 
-                    if [[ "$certificate" != "/usr/local/etc/tuic/cert.crt" && ! -f "$certificate" ]]; then
-                        echo "错误：证书路径不存在，请重新输入。"
-                    else
-                        break
-                    fi
-                done
+                if [[ "$certificate" != "/usr/local/etc/tuic/cert.crt" && ! -f "$certificate" ]]; then
+                    echo "错误：证书路径不存在，请重新输入。"
+                else
+                    break
+                fi
+            done
 
-                while true; do
-                    read -p "请输入私钥路径 (默认/usr/local/etc/tuic/private.key): " private_key
-                    private_key=${private_key:-/usr/local/etc/tuic/private.key}
+            while true; do
+                read -p "请输入私钥路径 (默认/usr/local/etc/tuic/private.key): " private_key
+                private_key=${private_key:-/usr/local/etc/tuic/private.key}
 
-                    if [[ "$private_key" != "/usr/local/etc/tuic/private.key" && ! -f "$private_key" ]]; then
-                        echo "错误：私钥路径不存在，请重新输入。"
-                    else
-                        break
-                    fi
-                done
+                if [[ "$private_key" != "/usr/local/etc/tuic/private.key" && ! -f "$private_key" ]]; then
+                    echo "错误：私钥路径不存在，请重新输入。"
+                else
+                    break
+                fi
+            done
 
-                break  
-                ;;
-            2)
-                echo "开始自动申请证书..."
-                apply_certificate
-                break  
-                ;;
-            *)
-                echo "错误：无效的选择，请重新输入。"
-                ;;
-        esac
-    done
+            break  
+            ;;
+        2)
+            echo "开始自动申请证书..."
+            apply_certificate
+            break  
+            ;;
+        *)
+            echo "错误：无效的选择，请重新输入。"
+            ;;
+    esac
+done
 
     # 设置拥塞控制算法
     while true; do
