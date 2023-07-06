@@ -1,6 +1,6 @@
 # **Installation**
 ```
-apt update && apt -y install curl
+apt -y install curl
 ```
 ```
 bash <(curl -L https://raw.githubusercontent.com/TinrLin/Tuic-build-tutorial/main/Install.sh)
