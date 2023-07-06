@@ -3,7 +3,7 @@
 apt update && apt -y install curl
 ```
 ```
-bash <(curl -L https://raw.githubusercontent.com/TinrLin/NaiveProxy-installation/main/Install.sh)
+bash <(curl -L https://raw.githubusercontent.com/TinrLin/Tuic-build-tutorial/main/Install.sh)
 ```
 
 # [Tuic](https://github.com/EAimTY/tuic)
