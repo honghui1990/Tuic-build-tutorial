@@ -154,9 +154,9 @@ function generate_tuic_config() {
     # 配置证书
     while true; do
     read -p "请选择证书来源：
-    1. 自备证书
-    2. 自动申请证书
-    请输入对应的数字: " certificate_option
+1. 自备证书
+2. 自动申请证书
+请输入对应的数字: " certificate_option
 
     case $certificate_option in
         1)
@@ -198,10 +198,10 @@ done
     # 设置拥塞控制算法
     while true; do
         read -p "请选择拥塞控制算法 (默认bbr):
-        1. bbr
-        2. cubic
-        3. new_reno
-    请输入对应的数字: " congestion_control
+1. bbr
+2. cubic
+3. new_reno
+请输入对应的数字: " congestion_control
 
         case $congestion_control in
             1)
@@ -287,14 +287,40 @@ check_firewall_configuration() {
     if command -v ufw >/dev/null 2>&1; then
         echo "检查防火墙配置..."
         if ! ufw status | grep -q "Status: active"; then
-            yes | ufw enable
+            ufw enable
         fi
 
         if ! ufw status | grep -q " $listen_port"; then
-            yes | ufw allow "$listen_port"
+            ufw allow "$listen_port"
         fi
 
-        echo "防火墙配置已更新。"
+        echo -e "${GREEN}防火墙配置已更新。${NC}"
+    elif command -v iptables >/dev/null 2>&1; then
+        echo "检查防火墙配置..."
+        if ! iptables -L | grep -q "Chain INPUT (policy ACCEPT)"; then
+            iptables -P INPUT ACCEPT
+        fi
+
+        if ! iptables -L | grep -q " $listen_port"; then
+            iptables -A INPUT -p tcp --dport "$listen_port" -j ACCEPT
+        fi
+
+        echo -e "${GREEN}防火墙配置已更新。${NC}"
+    elif command -v firewalld >/dev/null 2>&1; then
+        echo "检查防火墙配置..."
+        if ! firewall-cmd --state | grep -q "running"; then
+            systemctl start firewalld
+            systemctl enable firewalld
+        fi
+
+        if ! firewall-cmd --list-ports | grep -q "$listen_port/tcp"; then
+            firewall-cmd --add-port="$listen_port/tcp" --permanent
+            firewall-cmd --reload
+        fi
+
+        echo -e "${GREEN}防火墙配置已更新。${NC}"
+    else
+        echo -e "${RED}无法检测到适用的防火墙配置工具，请手动配置防火墙。${NC}"
     fi
 }
 
@@ -316,7 +342,7 @@ echo "=========================================================="
 
 # 安装 TUIC
 install_tuic_Serve() {
-    echo -e "${GREEN}------------------------ 安装 TUIC 服务 ------------------------${NC}"
+    echo -e "${GREEN}安装 TUIC 服务...${NC}"
 
     #检查并安装依赖
     check_dependencies
@@ -342,7 +368,7 @@ install_tuic_Serve() {
     # 启动tuic
     start_tuic
        
-    echo -e "${GREEN}------------------------ TUIC 服务安装完成 ------------------------${NC}" 
+    echo -e "${GREEN}TUIC 服务安装完成...${NC}" 
       
     # 显示配置信息
     display_tuic_config
@@ -358,27 +384,27 @@ start_tuic() {
 
 # 重启 TUIC
 restart_tuic() {
-    echo -e "${GREEN}------------------------ 重启 TUIC 服务 ------------------------${NC}"
+    echo -e "${GREEN}重启 TUIC 服务...${NC}"
     systemctl restart tuic.service
-    echo -e "${GREEN}------------------------ TUIC 已重启 ------------------------${NC}"
+    echo -e "${GREEN}TUIC 已重启...${NC}"
 }
 
 # 停止 TUIC
 stop_tuic() {
-    echo -e "${GREEN}------------------------ 停止 TUIC 服务 ------------------------${NC}"
+    echo -e "${GREEN}停止 TUIC 服务...${NC}"
     systemctl stop tuic.service
-    echo -e "${GREEN}------------------------ TUIC 服务 已停止 ------------------------${NC}"
+    echo -e "${GREEN}TUIC 服务 已停止...${NC}"
 }
 
 # 卸载 TUIC
 uninstall_tuic() {
-    echo -e "${GREEN}------------------------ 卸载 TUIC 服务 ------------------------${NC}"
+    echo -e "${GREEN}卸载 TUIC 服务...${NC}"
     systemctl stop tuic.service
     systemctl disable tuic.service
     rm /etc/systemd/system/tuic.service
     rm /usr/local/etc/tuic/config.json
     rm /usr/bin/tuic
-    echo -e "${GREEN}------------------------ TUIC 服务已卸载 ------------------------${NC}"
+    echo -e "${GREEN}TUIC 服务已卸载...${NC}"
 }
 
 # 主函数
