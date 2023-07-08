@@ -2,8 +2,17 @@
 
 # 安装依赖
 function check_dependencies() {
-    local packages=("wget" "socat" "uuid-runtime" "jq" "openssl")
+    local packages=("wget" "socat" "jq" "openssl")
     
+    if [[ -n $(command -v apt-get) ]]; then
+        packages+=("uuid-runtime")
+    elif [[ -n $(command -v yum) ]]; then
+        packages+=("util-linux")
+    else
+        echo "无法确定系统包管理器，请手动安装依赖。"
+        exit 1
+    fi
+
     for package in "${packages[@]}"; do
         if ! command -v "$package" &> /dev/null; then
             echo "安装依赖: $package"
@@ -11,9 +20,6 @@ function check_dependencies() {
                 apt-get -y install "$package"
             elif [[ -n $(command -v yum) ]]; then
                 yum -y install "$package"
-            else
-                echo "无法安装依赖，请手动安装: $package"
-                exit 1
             fi
         fi
     done
@@ -84,20 +90,13 @@ LimitNOFILE=infinity
 WantedBy=multi-user.target" > "$service_file"
 }
 
-# 生成tuic的JSON配置文件
-function generate_tuic_config() {
-    local config_file="/usr/local/etc/tuic/config.json"
-    local listen_port=""
-    local uuid=""
-    local password=""
-    local congestion_control=""
+# 设置监听端口
+function set_listen_port() {
+    local default_port="443"
 
-    echo "生成tuic的JSON配置文件..."
-
-    # 设置监听端口
     while true; do
-        read -p "请输入监听端口 (默认443): " listen_port
-        listen_port=${listen_port:-443}
+        read -p "请输入监听端口 (默认$default_port): " listen_port
+        listen_port=${listen_port:-$default_port}
 
         if [[ $listen_port =~ ^[1-9][0-9]{0,4}$ && $listen_port -le 65535 ]]; then
             echo "监听端口设置成功：$listen_port"
@@ -106,12 +105,23 @@ function generate_tuic_config() {
             echo "错误：监听端口范围必须在1-65535之间，请重新输入。"
         fi
     done
+}
 
-    # 自动生成UUID
-    uuid=$(uuidgen)
+# 自动生成UUID
+function generate_uuid() {
+    if [[ -n $(command -v uuidgen) ]]; then
+        uuid=$(uuidgen)
+    elif [[ -n $(command -v uuid) ]]; then
+        uuid=$(uuid -v 4)
+    else
+        echo "错误：无法生成UUID，请手动设置。"
+        exit 1
+    fi
     echo "生成的UUID为：$uuid"
+}
 
-    # 设置密码
+# 设置密码
+function set_password() {
     read -p "请输入密码: " password
 
     # 如果密码为空，则随机生成一个密码
@@ -119,27 +129,19 @@ function generate_tuic_config() {
         password=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 12 | head -n 1)
         echo "生成的密码为：$password"
     fi
+}
 
-    # 将UUID和密码添加到用户列表中
-    users="\"$uuid\": \"$password\""
-
-    # 询问是否添加多用户
+# 添加多用户
+function add_multiple_users() {
     while true; do
         read -p "是否继续添加用户？(Y/N): " add_multiple_users
 
         if [[ "$add_multiple_users" == "Y" || "$add_multiple_users" == "y" ]]; then
             # 自动生成UUID
-            uuid=$(uuidgen)
-            echo "生成的UUID为：$uuid"
+            generate_uuid
 
             # 设置密码
-            read -p "请输入密码: " password
-
-            # 如果密码为空，则随机生成一个密码
-            if [[ -z "$password" ]]; then
-                password=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 12 | head -n 1)
-                echo "生成的密码为：$password"
-            fi
+            set_password
 
             # 将UUID和密码添加到用户列表中
             users+=",\n\"$uuid\": \"$password\""
@@ -147,57 +149,39 @@ function generate_tuic_config() {
             break
         fi
     done
+}
 
-    # 格式化用户列表
-    users=$(echo -e "$users" | sed -e 's/^/        /')
-
-    # 配置证书
+# 配置证书和私钥路径
+function set_certificate_and_private_key() {
     while true; do
-    read -p "请选择证书来源：
-1. 自备证书
-2. 自动申请证书
-请输入对应的数字: " certificate_option
+        read -p "请输入证书路径 (默认/etc/ssl/private/cert.crt): " certificate_path
+        certificate_path=${certificate_path:-"/etc/ssl/private/cert.crt"}
 
-    case $certificate_option in
-        1)
-            while true; do
-                read -p "请输入证书路径 (默认/usr/local/etc/tuic/cert.crt): " certificate
-                certificate=${certificate:-/usr/local/etc/tuic/cert.crt}
+        if [[ "$certificate_path" != "/etc/ssl/private/cert.crt" && ! -f "$certificate_path" ]]; then
+            echo "错误：证书路径不存在，请重新输入。"
+        else
+            break
+        fi
+    done
 
-                if [[ "$certificate" != "/usr/local/etc/tuic/cert.crt" && ! -f "$certificate" ]]; then
-                    echo "错误：证书路径不存在，请重新输入。"
-                else
-                    break
-                fi
-            done
-
-            while true; do
-                read -p "请输入私钥路径 (默认/usr/local/etc/tuic/private.key): " private_key
-                private_key=${private_key:-/usr/local/etc/tuic/private.key}
-
-                if [[ "$private_key" != "/usr/local/etc/tuic/private.key" && ! -f "$private_key" ]]; then
-                    echo "错误：私钥路径不存在，请重新输入。"
-                else
-                    break
-                fi
-            done
-
-            break  
-            ;;
-        2)
-            echo "开始自动申请证书..."
-            apply_certificate
-            break  
-            ;;
-        *)
-            echo "错误：无效的选择，请重新输入。"
-            ;;
-    esac
-done
-
-    # 设置拥塞控制算法
     while true; do
-        read -p "请选择拥塞控制算法 (默认bbr):
+        read -p "请输入私钥路径 (默认/etc/ssl/private/private.key): " private_key_path
+        private_key_path=${private_key_path:-"/etc/ssl/private/private.key"}
+
+        if [[ "$private_key_path" != "/etc/ssl/private/private.key" && ! -f "$private_key_path" ]]; then
+            echo "错误：私钥路径不存在，请重新输入。"
+        else
+            break
+        fi
+    done
+}
+
+# 设置拥塞控制算法
+function set_congestion_control() {
+    local default_congestion_control="bbr"
+
+    while true; do
+        read -p "请选择拥塞控制算法 (默认$default_congestion_control):
 1. bbr
 2. cubic
 3. new_reno
@@ -217,7 +201,7 @@ done
                 break
                 ;;
             "")
-                congestion_control="bbr"
+                congestion_control=$default_congestion_control
                 break
                 ;;
             *)
@@ -225,6 +209,42 @@ done
                 ;;
         esac
     done
+}
+
+# 生成tuic的JSON配置文件
+function generate_tuic_config() {
+    local config_file="/usr/local/etc/tuic/config.json"
+    local users=""
+    local certificate=""
+    local private_key=""
+    
+    echo "生成tuic的JSON配置文件..."
+
+    # 设置监听端口
+    set_listen_port
+
+    # 自动生成UUID
+    generate_uuid
+
+    # 设置密码
+    set_password
+
+    # 将UUID和密码添加到用户列表中
+    users="\"$uuid\": \"$password\""
+
+    # 添加多用户
+    add_multiple_users
+
+    # 格式化用户列表
+    users=$(echo -e "$users" | sed -e 's/^/        /')
+
+    # 配置证书和私钥路径
+    set_certificate_and_private_key
+    certificate="$certificate_path"
+    private_key="$private_key_path"
+
+    # 设置拥塞控制算法
+    set_congestion_control
 
     # 生成tuic配置文件
     echo "{
@@ -251,9 +271,36 @@ $users
 }" > "$config_file"
 }
 
+# 询问证书来源选择
+function ask_certificate_option() {
+    while true; do
+        read -p "请选择证书来源：
+1. 自动申请证书
+2. 自备证书
+请输入对应的数字: " certificate_option
+
+        case $certificate_option in
+            1)
+                echo "已选择自动申请证书。"
+                apply_certificate
+                break
+                ;;
+            2)
+                echo "已选择自备证书。"
+                break
+                ;;
+
+            *)
+                echo "错误：无效的选择，请重新输入。"
+                ;;
+        esac
+    done
+}
+
 # 自动申请证书
 function apply_certificate() {
     local domain
+
     # 安装 acme
     echo "安装 acme..."
     curl https://get.acme.sh | sh 
@@ -278,50 +325,87 @@ function apply_certificate() {
 
     # 安装证书
     echo "安装证书..."
-    ~/.acme.sh/acme.sh --install-cert -d "$domain" --ecc --key-file /usr/local/etc/tuic/private.key --fullchain-file /usr/local/etc/tuic/cert.crt
+    certificate_path=$(~/.acme.sh/acme.sh --install-cert -d "$domain" --ecc --key-file "$certificate_path" --fullchain-file "$private_key_path" --reloadcmd "echo 'Certificate installed.'")
 
+    set_certificate_path="$certificate_path"
+    set_private_key_path="${certificate_path%.crt}.key"
 }
 
 # 检查防火墙配置
 check_firewall_configuration() {
-    if command -v ufw >/dev/null 2>&1; then
-        echo "检查防火墙配置..."
-        if ! ufw status | grep -q "Status: active"; then
-            ufw enable
-        fi
+    local os_name=$(uname -s)
+    local firewall
 
-        if ! ufw status | grep -q " $listen_port"; then
-            ufw allow "$listen_port"
+    if [[ $os_name == "Linux" ]]; then
+        if command -v ufw >/dev/null 2>&1 && command -v iptables >/dev/null 2>&1; then
+            firewall="ufw"
+        elif command -v iptables >/dev/null 2>&1 && command -v firewalld >/dev/null 2>&1; then
+            firewall="iptables-firewalld"
         fi
-
-        echo -e "${GREEN}防火墙配置已更新。${NC}"
-    elif command -v iptables >/dev/null 2>&1; then
-        echo "检查防火墙配置..."
-        if ! iptables -L | grep -q "Chain INPUT (policy ACCEPT)"; then
-            iptables -P INPUT ACCEPT
-        fi
-
-        if ! iptables -L | grep -q " $listen_port"; then
-            iptables -A INPUT -p tcp --dport "$listen_port" -j ACCEPT
-        fi
-
-        echo -e "${GREEN}防火墙配置已更新。${NC}"
-    elif command -v firewalld >/dev/null 2>&1; then
-        echo "检查防火墙配置..."
-        if ! firewall-cmd --state | grep -q "running"; then
-            systemctl start firewalld
-            systemctl enable firewalld
-        fi
-
-        if ! firewall-cmd --list-ports | grep -q "$listen_port/tcp"; then
-            firewall-cmd --add-port="$listen_port/tcp" --permanent
-            firewall-cmd --reload
-        fi
-
-        echo -e "${GREEN}防火墙配置已更新。${NC}"
-    else
-        echo -e "${RED}无法检测到适用的防火墙配置工具，请手动配置防火墙。${NC}"
     fi
+
+    if [[ -z $firewall ]]; then
+        echo -e "${RED}无法检测到适用的防火墙配置工具，请手动配置防火墙。${NC}"
+        return
+    fi
+
+    echo "检查防火墙配置..."
+
+    case $firewall in
+        ufw)
+            if ! ufw status | grep -q "Status: active"; then
+                ufw enable
+            fi
+
+            if ! ufw status | grep -q " $listen_port"; then
+                ufw allow "$listen_port"
+            fi
+
+            if ! ufw status | grep -q " 80"; then
+                ufw allow 80
+            fi
+
+            echo -e "${GREEN}防火墙配置已更新。${NC}"
+            ;;
+        iptables-firewalld)
+            if command -v iptables >/dev/null 2>&1; then
+                if ! iptables -C INPUT -p tcp --dport "$listen_port" -j ACCEPT >/dev/null 2>&1; then
+                    iptables -A INPUT -p tcp --dport "$listen_port" -j ACCEPT
+                fi
+
+                if ! iptables -C INPUT -p tcp --dport 80 -j ACCEPT >/dev/null 2>&1; then
+                    iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+                fi
+
+                iptables-save > /etc/sysconfig/iptables
+
+                echo -e "${GREEN}iptables防火墙配置已更新。${NC}"
+            fi
+
+            if command -v firewalld >/dev/null 2>&1; then
+                if ! firewall-cmd --state | grep -q "running"; then
+                    systemctl start firewalld
+                    systemctl enable firewalld
+                fi
+
+                if ! firewall-cmd --zone=public --list-ports | grep -q "$listen_port/tcp"; then
+                    firewall-cmd --zone=public --add-port="$listen_port/tcp" --permanent
+                fi
+
+                if ! firewall-cmd --zone=public --list-ports | grep -q "$listen_port/udp"; then
+                    firewall-cmd --zone=public --add-port="$listen_port/udp" --permanent
+                fi
+
+                if ! firewall-cmd --zone=public --list-ports | grep -q "80/tcp"; then
+                    firewall-cmd --zone=public --add-port=80/tcp --permanent
+                fi
+
+                firewall-cmd --reload
+
+                echo -e "${GREEN}firewalld防火墙配置已更新。${NC}"
+            fi
+            ;;
+    esac
 }
 
 # 显示 tuic 配置信息
@@ -361,9 +445,12 @@ install_tuic_Serve() {
 
     # 生成tuic的JSON配置文件
     generate_tuic_config
-
+    
     # 检查防火墙配置
-    check_firewall_configuration  
+    check_firewall_configuration
+   
+    # 配置证书
+    ask_certificate_option
      
     # 启动tuic
     start_tuic
