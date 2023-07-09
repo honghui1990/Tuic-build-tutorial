@@ -51,12 +51,10 @@ function create_tuic_directory() {
     local ssl_directory="/etc/ssl/private"
     
     if [[ ! -d "$tuic_directory" ]]; then
-        echo "创建 tuic 配置文件目录: $tuic_directory"
         mkdir -p "$tuic_directory"
     fi
     
     if [[ ! -d "$ssl_directory" ]]; then
-        echo "创建 SSL 私钥文件夹: $ssl_directory"
         mkdir -p "$ssl_directory"
     fi
 }
