@@ -1,9 +1,16 @@
 # **Installation**
+### The script supports custom ports, supports multiple users, and has two configurations: self-provided certificate and automatic certificate application.
+### The script supports CentOS 8+, Debian 10+, Ubuntu 20+ operating systems.
+### Openssl version ≥ 1.1.1 is required to run this script.
+### All codes are from official documentation;The script is completely open source,you can use it with confidence!
+
 ```
-apt -y install curl
+#Debian&&Ubuntu
+apt update && apt -y install curl
 ```
 ```
-yum -y install curl
+#CentOS
+yum update && yum -y install curl
 ```
 ```
 bash <(curl -L https://raw.githubusercontent.com/TinrLin/Tuic-build-tutorial/main/Install.sh)
