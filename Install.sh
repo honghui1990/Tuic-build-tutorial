@@ -305,7 +305,7 @@ function apply_certificate() {
     echo "安装 acme..."
     curl https://get.acme.sh | sh 
     alias acme.sh=~/.acme.sh/acme.sh
-    acme.sh --set-default-ca --server letsencrypt 
+    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt 
 
     # 验证域名
     while true; do
@@ -321,11 +321,11 @@ function apply_certificate() {
     
     # 申请证书
     echo "申请证书..."
-    acme.sh --issue -d "$domain" --standalone -k ec-256 --webroot /home/wwwroot/html 
+    ~/.acme.sh/acme.sh --issue -d "$domain" --standalone -k ec-256 --webroot /home/wwwroot/html 
 
     # 安装证书
     echo "安装证书..."
-    certificate_path=$(acme.sh --install-cert -d "$domain" --ecc --key-file "$certificate_path" --fullchain-file "$private_key_path")
+    certificate_path=$(~/.acme.sh/acme.sh --install-cert -d "$domain" --ecc --key-file "$certificate_path" --fullchain-file "$private_key_path")
 
     set_certificate_path="$certificate_path"
     set_private_key_path="${certificate_path%.crt}.key"
