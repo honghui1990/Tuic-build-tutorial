@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# 定义颜色变量
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
 # 安装依赖
 function check_dependencies() {
     local packages=("wget" "socat" "jq" "openssl")
@@ -9,7 +16,7 @@ function check_dependencies() {
     elif [[ -n $(command -v yum) ]]; then
         packages+=("util-linux")
     else
-        echo "无法确定系统包管理器，请手动安装依赖。"
+        echo -e "${RED}无法确定系统包管理器，请手动安装依赖。${NC}"
         exit 1
     fi
 
@@ -26,7 +33,7 @@ function check_dependencies() {
 }
 
 # 开启 BBR
-enable_bbr() {
+function enable_bbr() {
     if ! grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf; then
         echo "开启 BBR..."
         echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
@@ -57,7 +64,7 @@ function install_tuic() {
     elif [[ $(arch) == "aarch64" ]]; then
         url="https://github.com/EAimTY/tuic/releases/download/tuic-server-1.0.0/tuic-server-1.0.0-aarch64-unknown-linux-gnu"
     else
-        echo "不支持的架构: $(arch)"
+        echo -e "${RED}不支持的架构: $(arch)${NC}"
         exit 1
     fi
     
@@ -69,6 +76,7 @@ function install_tuic() {
 # 配置tuic开机自启服务
 function configure_tuic_service() {
     local service_file="/etc/systemd/system/tuic.service"
+    local config_file="/usr/local/etc/tuic/config.json"
     
     echo "配置tuic开机自启服务..."
     echo "[Unit]
@@ -81,7 +89,7 @@ User=root
 WorkingDirectory=/usr/local/etc/tuic/
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
-ExecStart=/usr/bin/tuic -c /usr/local/etc/tuic/config.json
+ExecStart=/usr/bin/tuic -c '$config_file'
 Restart=on-failure
 RestartSec=10
 LimitNOFILE=infinity
@@ -99,10 +107,10 @@ function set_listen_port() {
         listen_port=${listen_port:-$default_port}
 
         if [[ $listen_port =~ ^[1-9][0-9]{0,4}$ && $listen_port -le 65535 ]]; then
-            echo "监听端口设置成功：$listen_port"
+            echo -e "${GREEN}监听端口设置成功：$listen_port${NC}"
             break
         else
-            echo "错误：监听端口范围必须在1-65535之间，请重新输入。"
+            echo -e "${RED}错误：监听端口范围必须在1-65535之间，请重新输入。${NC}"
         fi
     done
 }
@@ -114,20 +122,20 @@ function generate_uuid() {
     elif [[ -n $(command -v uuid) ]]; then
         uuid=$(uuid -v 4)
     else
-        echo "错误：无法生成UUID，请手动设置。"
+        echo -e "${RED}错误：无法生成UUID，请手动设置。${NC}"
         exit 1
     fi
-    echo "生成的UUID为：$uuid"
+    echo -e "${GREEN}生成的UUID为：$uuid${NC}"
 }
 
 # 设置密码
 function set_password() {
-    read -p "请输入密码: " password
+    read -p "请输入密码（默认随机生成）: " password
 
     # 如果密码为空，则随机生成一个密码
     if [[ -z "$password" ]]; then
         password=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 12 | head -n 1)
-        echo "生成的密码为：$password"
+        echo -e "${GREEN}生成的密码为：$password${NC}"
     fi
 }
 
@@ -151,14 +159,13 @@ function add_multiple_users() {
     done
 }
 
-# 配置证书和私钥路径
 function set_certificate_and_private_key() {
     while true; do
         read -p "请输入证书路径 (默认/etc/ssl/private/cert.crt): " certificate_path
         certificate_path=${certificate_path:-"/etc/ssl/private/cert.crt"}
 
-        if [[ "$certificate_path" != "/etc/ssl/private/cert.crt" && ! -f "$certificate_path" ]]; then
-            echo "错误：证书路径不存在，请重新输入。"
+        if [[ "$certificate_path" != "/etc/ssl/private/cert.crt" && ! -d "$(dirname "$certificate_path")" ]]; then
+            echo -e "${RED}错误：证书目录不存在，请重新输入。${NC}"
         else
             break
         fi
@@ -168,13 +175,14 @@ function set_certificate_and_private_key() {
         read -p "请输入私钥路径 (默认/etc/ssl/private/private.key): " private_key_path
         private_key_path=${private_key_path:-"/etc/ssl/private/private.key"}
 
-        if [[ "$private_key_path" != "/etc/ssl/private/private.key" && ! -f "$private_key_path" ]]; then
-            echo "错误：私钥路径不存在，请重新输入。"
+        if [[ "$private_key_path" != "/etc/ssl/private/private.key" && ! -d "$(dirname "$private_key_path")" ]]; then
+            echo -e "${RED}错误：私钥目录不存在，请重新输入。${NC}"
         else
             break
         fi
     done
 }
+
 
 # 设置拥塞控制算法
 function set_congestion_control() {
@@ -182,9 +190,9 @@ function set_congestion_control() {
 
     while true; do
         read -p "请选择拥塞控制算法 (默认$default_congestion_control):
-1. bbr
-2. cubic
-3. new_reno
+ [1]. bbr
+ [2]. cubic
+ [3]. new_reno
 请输入对应的数字: " congestion_control
 
         case $congestion_control in
@@ -205,7 +213,7 @@ function set_congestion_control() {
                 break
                 ;;
             *)
-                echo "错误：无效的选择，请重新输入。"
+                echo -e "${RED}错误：无效的选择，请重新输入。${NC}"
                 ;;
         esac
     done
@@ -240,8 +248,8 @@ function generate_tuic_config() {
 
     # 配置证书和私钥路径
     set_certificate_and_private_key
-    certificate="$certificate_path"
-    private_key="$private_key_path"
+    certificate_path="$certificate_path"
+    private_key_path="$private_key_path"
 
     # 设置拥塞控制算法
     set_congestion_control
@@ -252,8 +260,8 @@ function generate_tuic_config() {
     \"users\": {
 $users
     },
-    \"certificate\": \"$certificate\",
-    \"private_key\": \"$private_key\",
+    \"certificate\": \"$certificate_path\",
+    \"private_key\": \"$private_key_path\",
     \"congestion_control\": \"$congestion_control\",
     \"alpn\": [\"h3\", \"spdy/3.1\"],
     \"udp_relay_ipv6\": true,
@@ -275,8 +283,8 @@ $users
 function ask_certificate_option() {
     while true; do
         read -p "请选择证书来源：
-1. 自动申请证书
-2. 自备证书
+ [1]. 自动申请证书
+ [2]. 自备证书
 请输入对应的数字: " certificate_option
 
         case $certificate_option in
@@ -291,7 +299,7 @@ function ask_certificate_option() {
                 ;;
 
             *)
-                echo "错误：无效的选择，请重新输入。"
+                echo -e "${RED}错误：无效的选择，请重新输入。${NC}"
                 ;;
         esac
     done
@@ -301,12 +309,6 @@ function ask_certificate_option() {
 function apply_certificate() {
     local domain
 
-    # 安装 acme
-    echo "安装 acme..."
-    curl https://get.acme.sh | sh 
-    alias acme.sh=~/.acme.sh/acme.sh
-    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt 
-
     # 验证域名
     while true; do
         read -p "请输入您的域名: " domain
@@ -315,24 +317,31 @@ function apply_certificate() {
         if ping -c 1 "$domain" &>/dev/null; then
             break
         else
-            echo "错误：域名未解析或输入错误，请重新输入。"
+            echo -e "${RED}错误：域名未解析或输入错误，请重新输入。${NC}"
         fi
     done
     
+    # 安装 acme
+    echo "安装 acme..."
+    curl https://get.acme.sh | sh 
+    alias acme.sh=~/.acme.sh/acme.sh
+    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt 
+
     # 申请证书
     echo "申请证书..."
     ~/.acme.sh/acme.sh --issue -d "$domain" --standalone -k ec-256 --webroot /home/wwwroot/html 
 
     # 安装证书
     echo "安装证书..."
-    certificate_path=$(~/.acme.sh/acme.sh --install-cert -d "$domain" --ecc --key-file "$certificate_path" --fullchain-file "$private_key_path")
+    certificate_path=$(~/.acme.sh/acme.sh --install-cert -d "$domain" --ecc --key-file "$private_key_path" --fullchain-file "$certificate_path")
 
     set_certificate_path="$certificate_path"
-    set_private_key_path="${certificate_path%.crt}.key"
+    set_private_key_path="$private_key_path"
 }
 
+
 # 检查防火墙配置
-check_firewall_configuration() {
+function check_firewall_configuration() {
     local os_name=$(uname -s)
     local firewall
 
@@ -365,7 +374,7 @@ check_firewall_configuration() {
                 ufw allow 80
             fi
 
-            echo -e "${GREEN}防火墙配置已更新。${NC}"
+            echo "防火墙配置已更新。"
             ;;
         iptables-firewalld)
             if command -v iptables >/dev/null 2>&1; then
@@ -379,7 +388,7 @@ check_firewall_configuration() {
 
                 iptables-save > /etc/sysconfig/iptables
 
-                echo -e "${GREEN}iptables防火墙配置已更新。${NC}"
+                echo "iptables防火墙配置已更新。"
             fi
 
             if command -v firewalld >/dev/null 2>&1; then
@@ -402,31 +411,32 @@ check_firewall_configuration() {
 
                 firewall-cmd --reload
 
-                echo -e "${GREEN}firewalld防火墙配置已更新。${NC}"
+                echo "firewalld防火墙配置已更新。"
             fi
             ;;
     esac
 }
 
 # 显示 tuic 配置信息
-display_tuic_config() {
+function display_tuic_config() {
     local config_file="/usr/local/etc/tuic/config.json"
-echo "=========================================================="
+echo -e "${CYAN}TUIC节点配置信息：${NC}"    
+echo -e "${CYAN}==================================================================${NC}" 
     echo "监听端口: $(jq -r '.server' "$config_file" | sed 's/\[::\]://')"
-echo "=========================================================="
+echo -e "${CYAN}------------------------------------------------------------------${NC}" 
     echo "UUID和密码列表:"
-    jq -r '.users' "$config_file" | sed -e '1d;$d' -e 's/[{}]//g'
-echo "=========================================================="
+    jq -r '.users | to_entries[] | "UUID:\(.key)\t密码:\(.value)"' "$config_file"
+echo -e "${CYAN}------------------------------------------------------------------${NC}" 
     echo "拥塞控制算法: $(jq -r '.congestion_control' "$config_file")"
-echo "=========================================================="
-    echo "ALPN协议:$(jq -r '.alpn' "$config_file")" | sed 's/\[//;s/\]//;/^\s*$/d'
-echo "=========================================================="   
+echo -e "${CYAN}------------------------------------------------------------------${NC}" 
+    echo "ALPN协议:$(jq -r '.alpn[] | select(. != "")' "$config_file" | sed ':a;N;$!ba;s/\n/, /g')"
+echo -e "${CYAN}==================================================================${NC}"    
 }
 
 
 # 安装 TUIC
-install_tuic_Serve() {
-    echo -e "${GREEN}安装 TUIC 服务...${NC}"
+function install_tuic_Serve() {
+    echo "安装 TUIC 服务..."
 
     #检查并安装依赖
     check_dependencies
@@ -440,9 +450,6 @@ install_tuic_Serve() {
     # 下载和安装tuic程序
     install_tuic
 
-    # 配置tuic开机自启服务
-    configure_tuic_service
-
     # 生成tuic的JSON配置文件
     generate_tuic_config
     
@@ -451,18 +458,21 @@ install_tuic_Serve() {
    
     # 配置证书
     ask_certificate_option
+
+    # 配置tuic开机自启服务
+    configure_tuic_service
      
     # 启动tuic
     start_tuic
        
-    echo -e "${GREEN}TUIC 服务安装完成...${NC}" 
+    echo "TUIC 服务安装完成..." 
       
     # 显示配置信息
     display_tuic_config
 }
 
 # 启动 TUIC
-start_tuic() {
+function start_tuic() {
     systemctl daemon-reload
     systemctl enable tuic.service
     systemctl start tuic.service
@@ -470,22 +480,22 @@ start_tuic() {
 }
 
 # 重启 TUIC
-restart_tuic() {
-    echo -e "${GREEN}重启 TUIC 服务...${NC}"
+function restart_tuic() {
+    echo "重启 TUIC 服务..."
     systemctl restart tuic.service
     echo -e "${GREEN}TUIC 已重启...${NC}"
 }
 
 # 停止 TUIC
-stop_tuic() {
-    echo -e "${GREEN}停止 TUIC 服务...${NC}"
+function stop_tuic() {
+    echo "停止 TUIC 服务..."
     systemctl stop tuic.service
     echo -e "${GREEN}TUIC 服务 已停止...${NC}"
 }
 
 # 卸载 TUIC
-uninstall_tuic() {
-    echo -e "${GREEN}卸载 TUIC 服务...${NC}"
+function uninstall_tuic() {
+    echo "卸载 TUIC 服务..."
     systemctl stop tuic.service
     systemctl disable tuic.service
     rm /etc/systemd/system/tuic.service
@@ -496,16 +506,16 @@ uninstall_tuic() {
 
 # 主函数
 function main_menu() {
-echo -e "${GREEN}               ------------------------------------------------------------------------------------ ${NC}"
-echo -e "${GREEN}               |                          欢迎使用 TUIC 安装程序                                  |${NC}"
-echo -e "${GREEN}               |                      项目地址:https://github.com/TinrLin                         |${NC}"
-echo -e "${GREEN}               ------------------------------------------------------------------------------------${NC}"        
+  echo -e "${CYAN}               ------------------------------------------------------------------------------------ ${NC}"
+  echo -e "${CYAN}               |                          欢迎使用 TUIC 安装程序                                  |${NC}"
+  echo -e "${CYAN}               |                      项目地址:https://github.com/TinrLin                         |${NC}"
+  echo -e "${CYAN}               ------------------------------------------------------------------------------------${NC}"        
   echo -e "请选择要执行的操作:"
-  echo -e "  ${GREEN}[1]. 安装 TUIC 服务${NC}"
-  echo -e "  ${GREEN}[2]. 重启 TUIC 服务${NC}"
-  echo -e "  ${GREEN}[3]. 停止 TUIC 服务${NC}"
-  echo -e "  ${GREEN}[4]. 卸载 TUIC 服务${NC}"
-  echo -e "  ${GREEN}[0]. 退出${NC}"
+  echo -e "  ${CYAN}[1]. 安装 TUIC 服务${NC}"
+  echo -e "  ${CYAN}[2]. 重启 TUIC 服务${NC}"
+  echo -e "  ${CYAN}[3]. 停止 TUIC 服务${NC}"
+  echo -e "  ${CYAN}[4]. 卸载 TUIC 服务${NC}"
+  echo -e "  ${CYAN}[0]. 退出${NC}"
 
   read -p "请输入: " choice
 
@@ -526,7 +536,8 @@ echo -e "${GREEN}               ------------------------------------------------
       exit 0
       ;;
     *)
-      print_error_and_retry "无效的选项，请重新输入..."
+      echo -e "${RED}错误: 无效的选项，请重新输入...${NC}"
+      main_menu
       ;;
   esac
 }
