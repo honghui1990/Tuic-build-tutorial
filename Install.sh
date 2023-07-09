@@ -78,7 +78,7 @@ After=network.target nss-lookup.target
 
 [Service]
 User=root
-WorkingDirectory=/usr/local/etc/tuic
+WorkingDirectory=/usr/local/etc/tuic/
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
 ExecStart=/usr/bin/tuic -c /usr/local/etc/tuic/config.json
