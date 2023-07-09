@@ -325,7 +325,7 @@ function apply_certificate() {
 
     # 安装证书
     echo "安装证书..."
-    certificate_path=$(~/.acme.sh/acme.sh --install-cert -d "$domain" --ecc --key-file "$certificate_path" --fullchain-file "$private_key_path" --reloadcmd "echo 'Certificate installed.'")
+    certificate_path=$(~/.acme.sh/acme.sh --install-cert -d "$domain" --ecc --key-file "$certificate_path" --fullchain-file "$private_key_path")
 
     set_certificate_path="$certificate_path"
     set_private_key_path="${certificate_path%.crt}.key"
