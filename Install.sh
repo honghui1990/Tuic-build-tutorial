@@ -45,15 +45,22 @@ function enable_bbr() {
     fi
 }
 
-# 创建tuic文件目录
+# 创建文件目录
 function create_tuic_directory() {
-    local directory="/usr/local/etc/tuic"
+    local tuic_directory="/usr/local/etc/tuic"
+    local ssl_directory="/etc/ssl/private"
     
-    if [[ ! -d "$directory" ]]; then
-        echo "创建tuic配置文件目录: $directory"
-        mkdir -p "$directory"
+    if [[ ! -d "$tuic_directory" ]]; then
+        echo "创建 tuic 配置文件目录: $tuic_directory"
+        mkdir -p "$tuic_directory"
+    fi
+    
+    if [[ ! -d "$ssl_directory" ]]; then
+        echo "创建 SSL 私钥文件夹: $ssl_directory"
+        mkdir -p "$ssl_directory"
     fi
 }
+
 
 # 下载和安装tuic程序
 function install_tuic() {
