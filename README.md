@@ -1,7 +1,6 @@
 # **illustrate**
 ### The script supports custom ports, supports multiple users, and has two configurations: self-provided certificate and automatic certificate application.
 ### The script supports CentOS 8+, Debian 10+, Ubuntu 20+ operating systems.
-### Openssl version ≥ 1.1.1 is required to run this script.
 ### All codes are from official documentation;The script is completely open source,you can use it with confidence!
 # **Script installation**
 #### Debian && Ubuntu
