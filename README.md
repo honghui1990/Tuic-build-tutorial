@@ -4,14 +4,15 @@
 ### Openssl version ≥ 1.1.1 is required to run this script.
 ### All codes are from official documentation;The script is completely open source,you can use it with confidence!
 # **Script installation**
-### Debian && Ubuntu
+#### Debian && Ubuntu
 ```
 apt update && apt -y install curl
 ```
-### CentOS
+#### CentOS
 ```
 yum update && yum -y install curl
 ```
+### Install
 ```
 bash <(curl -L https://raw.githubusercontent.com/TinrLin/Tuic-build-tutorial/main/Install.sh)
 ```
