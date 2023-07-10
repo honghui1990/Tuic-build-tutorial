@@ -59,7 +59,6 @@ function create_tuic_directory() {
     fi
 }
 
-
 # 下载和安装tuic程序
 function install_tuic() {
     local url=""
@@ -160,17 +159,20 @@ function add_multiple_users() {
             users+=",\n\"$uuid\": \"$password\""
         elif [[ "$add_multiple_users" == "N" || "$add_multiple_users" == "n" ]]; then
             break
+        else
+            echo -e "${RED}错误：无效的选择，请重新输入。${NC}"
         fi
     done
 }
 
+# 设置证书和私钥路径
 function set_certificate_and_private_key() {
     while true; do
         read -p "请输入证书路径 (默认/etc/ssl/private/cert.crt): " certificate_path
         certificate_path=${certificate_path:-"/etc/ssl/private/cert.crt"}
 
-        if [[ "$certificate_path" != "/etc/ssl/private/cert.crt" && ! -d "$(dirname "$certificate_path")" ]]; then
-            echo -e "${RED}错误：证书目录不存在，请重新输入。${NC}"
+        if [[ "$certificate_path" != "/etc/ssl/private/cert.crt" && ! -f "$certificate_path" ]]; then
+            echo -e "${RED}错误：证书文件不存在，请重新输入。${NC}"
         else
             break
         fi
@@ -180,14 +182,13 @@ function set_certificate_and_private_key() {
         read -p "请输入私钥路径 (默认/etc/ssl/private/private.key): " private_key_path
         private_key_path=${private_key_path:-"/etc/ssl/private/private.key"}
 
-        if [[ "$private_key_path" != "/etc/ssl/private/private.key" && ! -d "$(dirname "$private_key_path")" ]]; then
-            echo -e "${RED}错误：私钥目录不存在，请重新输入。${NC}"
+        if [[ "$private_key_path" != "/etc/ssl/private/private.key" && ! -f "$private_key_path" ]]; then
+            echo -e "${RED}错误：私钥文件不存在，请重新输入。${NC}"
         else
             break
         fi
     done
 }
-
 
 # 设置拥塞控制算法
 function set_congestion_control() {
@@ -310,7 +311,7 @@ function ask_certificate_option() {
     done
 }
 
-# 自动申请证书
+# 申请证书
 function apply_certificate() {
     local domain
 
@@ -343,7 +344,6 @@ function apply_certificate() {
     set_certificate_path="$certificate_path"
     set_private_key_path="$private_key_path"
 }
-
 
 # 检查防火墙配置
 function check_firewall_configuration() {
@@ -437,7 +437,6 @@ echo -e "${CYAN}----------------------------------------------------------------
     echo "ALPN协议:$(jq -r '.alpn[] | select(. != "")' "$config_file" | sed ':a;N;$!ba;s/\n/, /g')"
 echo -e "${CYAN}==================================================================${NC}"    
 }
-
 
 # 安装 TUIC
 function install_tuic_Serve() {
