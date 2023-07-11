@@ -104,7 +104,7 @@ proxy-groups:
   - name: PROXY
     type: select
     proxies:
-      - ShadowTLS v3   
+      - tuic   
 
 rule-providers:
   reject:
