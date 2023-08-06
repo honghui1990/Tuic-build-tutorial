@@ -17,18 +17,18 @@ bash <(curl -L https://raw.githubusercontent.com/TinrLin/Tuic-build-tutorial/mai
 ```
 
 # **Manual installation**
-- **Install the Tuic program**
+### Install the Tuic program
 ```
 apt -y update && apt -y install wget socat uuid-runtime && wget -O /usr/local/bin/tuic https://github.com/EAimTY/tuic/releases/download/tuic-server-1.0.0/tuic-server-1.0.0-x86_64-unknown-linux-gnu && chmod +x /usr/local/bin/tuic
 ```
-- **Download configuration file**
+### Download configuration file
 ```
 wget -O /usr/local/etc/config.json https://raw.githubusercontent.com/TinrLin/Tuic-build-tutorial/main/server.json && wget -P /etc/systemd/system https://raw.githubusercontent.com/TinrLin/Tuic-build-tutorial/main/tuic.service
 ```
 
-- **Configure certificate**
+### Configure certificate
 
- 1.install acme
+ - **install acme**
 
 ```
 curl https://get.acme.sh | sh 
